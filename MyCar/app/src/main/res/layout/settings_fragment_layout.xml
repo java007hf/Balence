@@ -35,7 +35,7 @@
         android:id="@+id/Keep_Angle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="-36     b0" />
+        android:text="-3600" />
     <Button
         android:id="@+id/submit"
         android:layout_width="wrap_content"
