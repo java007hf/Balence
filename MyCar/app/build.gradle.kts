@@ -52,4 +52,7 @@ dependencies {
     implementation("com.github.Jay-Goo:RangeSeekBar:3.0.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.9.0")
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation ("com.squareup.okhttp3:okhttp-sse:4.12.0")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }

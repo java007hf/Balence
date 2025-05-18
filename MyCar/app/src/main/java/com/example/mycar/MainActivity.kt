@@ -13,9 +13,15 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.mycar.Command.sendMsg
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     private var hasConnected = false
+    private val agentClient = AgentClient("http://192.168.3.102:8000")
+    private val scope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +47,34 @@ class MainActivity : AppCompatActivity() {
 
         val frontBtn = findViewById<Button>(R.id.front_btn)
         frontBtn.setOnClickListener {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        agentClient.query("前进").collect { event ->
+                            withContext(Dispatchers.Main) {
+                                when (event.type) {
+                                    "model_response" -> {
+                                        val response = event.data as AgentClient.ModelResponse
+                                        Toast.makeText(this@MainActivity, "收到响应: ${response.content}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    "tool_call" -> {
+                                        val toolCall = event.data as AgentClient.ToolCall
+                                        Toast.makeText(this@MainActivity, "工具调用: ${toolCall.name}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    "error" -> {
+                                        val error = event.data as String
+                                        Toast.makeText(this@MainActivity, "错误: $error", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "发生错误: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
