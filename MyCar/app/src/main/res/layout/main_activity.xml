@@ -27,55 +27,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="100dp"
-        android:text="前"
-        app:layout_constraintTop_toBottomOf="@id/horizontal_seekbar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/left_btn"/>
-
-    <Button
-        android:id="@+id/left_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="左"
-        app:layout_constraintTop_toBottomOf="@id/front_btn"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/right_btn"
-        app:layout_constraintBottom_toTopOf="@id/back_btn"/>
-    <Button
-        android:id="@+id/right_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="右"
-        app:layout_constraintTop_toTopOf="@id/left_btn"
-        app:layout_constraintStart_toEndOf="@id/left_btn"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="@id/left_btn"/>
-    <Button
-        android:id="@+id/back_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="后"
-        app:layout_constraintTop_toBottomOf="@id/left_btn"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
-
-    <com.jaygoo.widget.RangeSeekBar
-        android:id="@+id/horizontal_seekbar"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        app:rsb_min="0"
-        app:rsb_max="255"
-        app:rsb_mode="single"
-        app:rsb_indicator_width="50dp"
-        app:rsb_indicator_height="50dp"
-        app:rsb_progress_color="#00ff00"
-        app:rsb_indicator_text_size="20sp"
-        app:rsb_indicator_show_mode="alwaysShow"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:text="语音识别"
         app:layout_constraintTop_toBottomOf="@id/opensetting"
-        app:layout_constraintBottom_toTopOf="@id/front_btn"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
