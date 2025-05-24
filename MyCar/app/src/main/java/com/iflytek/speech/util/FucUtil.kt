@@ -1,6 +1,8 @@
 package com.iflytek.speech.util
 
+import android.app.Activity
 import android.content.Context
+import android.widget.Toast
 import com.iflytek.cloud.ErrorCode
 import com.iflytek.cloud.SpeechConstant
 import com.iflytek.cloud.SpeechUtility
@@ -11,6 +13,8 @@ import java.io.IOException
  * 功能性函数扩展类
  */
 object FucUtil {
+    private var mToast: Toast? = null
+
     /**
      * 读取asset目录下文件。
      *
@@ -133,5 +137,15 @@ object FucUtil {
         }
 
         return null
+    }
+
+    fun showTip(activity: Activity, str: String) {
+        activity.runOnUiThread {
+            if (mToast != null) {
+                mToast!!.cancel()
+            }
+            mToast = Toast.makeText(activity.applicationContext, str, Toast.LENGTH_SHORT)
+            mToast?.show()
+        }
     }
 }
