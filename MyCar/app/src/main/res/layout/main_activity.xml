@@ -18,14 +18,22 @@ android:paddingRight="10dp">
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:text="对话"
-        android:textSize="30sp" />
+        android:text="LLM对话"
+        android:textSize="18sp" />
 
-    <ImageButton
+    <Button
         android:id="@+id/image_iat_set"
-        android:layout_width="35dp"
+        android:layout_width="60dp"
         android:layout_height="35dp"
+        android:text="ASR"
         android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"/>
+    <Button
+        android:id="@+id/image_tts_set"
+        android:layout_width="60dp"
+        android:layout_height="35dp"
+        android:text="TTS"
+        android:layout_toLeftOf="@+id/image_iat_set"
         android:layout_centerVertical="true"/>
 </RelativeLayout>
 
