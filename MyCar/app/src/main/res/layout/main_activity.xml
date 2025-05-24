@@ -1,35 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:focusable="true"
+android:focusableInTouchMode="true"
+android:gravity="center_horizontal"
+android:orientation="vertical"
+android:paddingLeft="10dp"
+android:paddingRight="10dp">
+
+<RelativeLayout
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    android:layout_height="wrap_content"
+    android:layout_margin="10dp">
 
-    <Button
-        android:id="@+id/button"
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="确认连接"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-    <Button
-        android:id="@+id/opensetting"
+        android:layout_centerInParent="true"
+        android:text="讯飞听写示例"
+        android:textSize="30sp" />
+
+    <ImageButton
+        android:id="@+id/image_iat_set"
+        android:layout_width="35dp"
+        android:layout_height="35dp"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"/>
+</RelativeLayout>
+
+<EditText
+    android:id="@+id/iat_text"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:gravity="top|left"
+    android:paddingBottom="20dp"
+    android:textSize="20sp" />
+
+
+<RadioGroup
+    android:id="@+id/iat_radioGroup"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:contentDescription="识别类型"
+    android:orientation="horizontal">
+
+    <RadioButton
+        android:id="@+id/iat_radioCloud"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:text="设置参数"
-        app:layout_constraintTop_toBottomOf="@id/button"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:layout_weight="1"
+        android:text="云端" />
 
-    <Button
-        android:id="@+id/front_btn"
+    <RadioButton
+        android:id="@+id/iat_radioLocal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="100dp"
-        android:text="语音识别"
-        app:layout_constraintTop_toBottomOf="@id/opensetting"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:layout_weight="1"
+        android:text="本地" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</RadioGroup>
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:layout_marginBottom="2dp"
+    android:gravity="center_horizontal"
+    android:orientation="horizontal">
+
+    <Button
+        android:id="@+id/iat_recognize"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="开始"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/iat_stop"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="停止"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/iat_cancel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="取消"
+        android:textSize="20sp" />
+</LinearLayout>
+
+<Button
+    android:id="@+id/checklinked"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:text="确认连接"
+    android:textSize="20sp" />
+
+<Button
+    android:id="@+id/opensetting"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    android:layout_marginBottom="4dp"
+    android:text="设置参数"
+    android:textSize="17sp" />
+</LinearLayout>

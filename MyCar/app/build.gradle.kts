@@ -39,6 +39,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets{
+        getByName("main"){
+            jniLibs.srcDirs("libs")
+        }
+    }
 }
 
 dependencies {
@@ -55,4 +61,7 @@ dependencies {
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    implementation(files("libs/Msc.jar"))
+    implementation("androidx.legacy:legacy-support-v4:1.0.0")
 }
