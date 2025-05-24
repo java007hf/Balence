@@ -1,5 +1,6 @@
 package com.example.mycar
 
+import android.util.Log
 import okhttp3.*
 import okio.ByteString
 import org.json.JSONObject
@@ -56,6 +57,8 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
             .url("$baseUrl/query")
             .post(requestBody.toRequestBody("application/json".toMediaType()))
             .build()
+
+        Log.d("benyl", request.toString())
 
         val eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {

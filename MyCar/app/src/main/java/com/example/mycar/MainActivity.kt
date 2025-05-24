@@ -8,7 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.mycar.Command.sendMsg
@@ -24,6 +24,8 @@ import com.iflytek.speech.util.FucUtil.showTip
 import com.iflytek.speech.util.JsonParser.parseIatResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var hasConnected = false
@@ -32,7 +34,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
     private var asrHelper: ASRHelper? = null
 
     // 听写结果内容
-    private var mResultText: EditText? = null
+    private var mResultText: TextView? = null
 
     /**
      * 听写监听器。
@@ -59,7 +61,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             p0?.let {
                 val text = parseIatResult(it.resultString)
                 mResultText!!.append(text)
-                mResultText!!.setSelection(mResultText!!.length())
+//                mResultText!!.setSelection(mResultText!!.length())
                 if (isLast) {
                     //TODO 最后的结果
                 }
@@ -96,45 +98,44 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun initView() {
-        mResultText = (findViewById<View>(R.id.iat_text) as EditText)
+        mResultText = (findViewById<View>(R.id.iat_text) as TextView)
         findViewById<Button>(R.id.opensetting).setOnClickListener(this)
         findViewById<Button>(R.id.checklinked).setOnClickListener(this)
         findViewById<View>(R.id.iat_recognize).setOnClickListener(this)
         findViewById<View>(R.id.iat_stop).setOnClickListener(this)
         findViewById<View>(R.id.iat_cancel).setOnClickListener(this)
         findViewById<View>(R.id.image_iat_set).setOnClickListener(this)
+    }
 
-//        val frontBtn = findViewById<Button>(R.id.front_btn)
-//        frontBtn.setOnClickListener {
-//            scope.launch {
-//                try {
-//                    withContext(Dispatchers.IO) {
-//                        agentClient.query("前进").collect { event ->
-//                            withContext(Dispatchers.Main) {
-//                                when (event.type) {
-//                                    "model_response" -> {
-//                                        val response = event.data as AgentClient.ModelResponse
-//                                        Toast.makeText(this@MainActivity, "收到响应: ${response.content}", Toast.LENGTH_SHORT).show()
-//                                    }
-//                                    "tool_call" -> {
-//                                        val toolCall = event.data as AgentClient.ToolCall
-//                                        Toast.makeText(this@MainActivity, "工具调用: ${toolCall.name}", Toast.LENGTH_SHORT).show()
-//                                    }
-//                                    "error" -> {
-//                                        val error = event.data as String
-//                                        Toast.makeText(this@MainActivity, "错误: $error", Toast.LENGTH_SHORT).show()
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                } catch (e: Exception) {
-//                    withContext(Dispatchers.Main) {
-//                        Toast.makeText(this@MainActivity, "发生错误: ${e.message}", Toast.LENGTH_SHORT).show()
-//                    }
-//                }
-//            }
-//        }
+    private fun sendMCPHostMSG() {
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    agentClient.query("前进").collect { event ->
+                        withContext(Dispatchers.Main) {
+                            when (event.type) {
+                                "model_response" -> {
+                                    val response = event.data as AgentClient.ModelResponse
+                                    Toast.makeText(this@MainActivity, "收到响应: ${response.content}", Toast.LENGTH_SHORT).show()
+                                }
+                                "tool_call" -> {
+                                    val toolCall = event.data as AgentClient.ToolCall
+                                    Toast.makeText(this@MainActivity, "工具调用: ${toolCall.name}", Toast.LENGTH_SHORT).show()
+                                }
+                                "error" -> {
+                                    val error = event.data as String
+                                    Toast.makeText(this@MainActivity, "错误: $error", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "发生错误: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun initASR() {
@@ -182,7 +183,8 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     startActivity(intent)
                 }
                 R.id.checklinked -> {
-                    sendMsg(Command.TEST.toString())
+//                    sendMsg(Command.TEST.toString())
+                    sendMCPHostMSG()
                 }
                 else -> {}
             }
