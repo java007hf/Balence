@@ -18,7 +18,7 @@ android:paddingRight="10dp">
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:text="讯飞听写示例"
+        android:text="对话"
         android:textSize="30sp" />
 
     <ImageButton
