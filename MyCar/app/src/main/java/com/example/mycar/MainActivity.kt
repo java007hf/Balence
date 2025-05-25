@@ -24,6 +24,7 @@ import com.iflytek.speech.util.FucUtil.showTip
 import com.iflytek.speech.util.JsonParser.parseIatResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -94,6 +95,32 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         setContentView(R.layout.main_activity)
         initASR()
         initView()
+
+        // 订阅 AgentClient 的事件流
+        scope.launch(Dispatchers.IO) {
+            agentClient.getEventFlow().collect { event ->
+                withContext(Dispatchers.Main) {  // 切回主线程更新 UI
+                    when (event.type) {
+                        "model_response" -> {
+                            val modelResponse = event.data as AgentClient.ModelResponse
+                            mResultText?.append("模型响应：${modelResponse.content}\n")
+                        }
+                        "tool_call" -> {
+                            val toolCall = event.data as AgentClient.ToolCall
+                            showTip(this@MainActivity, "工具调用：${toolCall.name}，参数：${toolCall.arguments}")
+                        }
+                        "error" -> {
+                            val errorMsg = event.data as String
+                            showTip(this@MainActivity, "错误：$errorMsg")
+                        }
+                        "mcp_host_msg" -> {
+                            // 处理 MCP Host 消息（根据实际业务需求扩展）
+                            Log.d("MainActivity", "MCP Host 消息：${event.data}")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -105,37 +132,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         findViewById<View>(R.id.iat_stop).setOnClickListener(this)
         findViewById<View>(R.id.iat_cancel).setOnClickListener(this)
         findViewById<View>(R.id.image_iat_set).setOnClickListener(this)
-    }
-
-    private fun sendMCPHostMSG() {
-        scope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    agentClient.query("前进").collect { event ->
-                        withContext(Dispatchers.Main) {
-                            when (event.type) {
-                                "model_response" -> {
-                                    val response = event.data as AgentClient.ModelResponse
-                                    Toast.makeText(this@MainActivity, "收到响应: ${response.content}", Toast.LENGTH_SHORT).show()
-                                }
-                                "tool_call" -> {
-                                    val toolCall = event.data as AgentClient.ToolCall
-                                    Toast.makeText(this@MainActivity, "工具调用: ${toolCall.name}", Toast.LENGTH_SHORT).show()
-                                }
-                                "error" -> {
-                                    val error = event.data as String
-                                    Toast.makeText(this@MainActivity, "错误: $error", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "发生错误: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
     }
 
     private fun initASR() {
@@ -184,7 +180,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
                 R.id.checklinked -> {
 //                    sendMsg(Command.TEST.toString())
-                    sendMCPHostMSG()
+                    scope.launch {
+                        agentClient.query("前进")
+                    }
+
                 }
                 else -> {}
             }
@@ -197,6 +196,11 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             hasConnected = true
             Toast.makeText(this, "连接正常", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()  // 取消协程作用域，停止事件监听
     }
 }
 

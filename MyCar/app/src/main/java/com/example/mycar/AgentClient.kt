@@ -24,6 +24,90 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    // 定义持久化的 SSE 连接和事件通道
+    private var eventSource: EventSource? = null
+    private val eventChannel = Channel<AgentEvent>(Channel.UNLIMITED)
+
+    // 初始化时建立持续 SSE 监听（假设服务端支持 /listen 端点）
+    init {
+        val listenRequest = Request.Builder()
+            .url("$baseUrl/sse")
+            .build()
+
+        eventSource = EventSources.createFactory(client).newEventSource(listenRequest, object : EventSourceListener() {
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                // 统一处理所有 SSE 事件，发送到事件通道
+                when (type) {
+                    "model_response" -> {
+                        val jsonData = JSONObject(data)
+                        eventChannel.trySend(AgentEvent("model_response", ModelResponse(
+                            type = jsonData.getString("type"),
+                            content = jsonData.optString("content")
+                        )))
+                    }
+                    "tool_call" -> {
+                        val jsonData = JSONObject(data)
+                        eventChannel.trySend(AgentEvent("tool_call", ToolCall(
+                            type = jsonData.getString("type"),
+                            name = jsonData.optString("name"),
+                            arguments = jsonData.optString("arguments"),
+                            toolId = jsonData.optString("tool_id"),
+                            output = jsonData.optString("output")
+                        )))
+                    }
+                    "error" -> {
+                        val jsonData = JSONObject(data)
+                        eventChannel.trySend(AgentEvent("error", jsonData.getString("error")))
+                    }
+                    // 新增：处理原 sendMCPHostMSG 相关事件（假设类型为 "mcp_host_msg"）
+                    "mcp_host_msg" -> {
+                        handleMCPHostMessage(data) // 原 sendMCPHostMSG 的功能迁移至此
+                    }
+                }
+            }
+
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                eventChannel.trySend(AgentEvent("error", t?.message ?: "Unknown error"))
+            }
+        })
+    }
+
+    // 发送查询请求（根据 main.py 的 QueryRequest 协议实现）
+    suspend fun query(query: String, sessionId: String = "default", streaming: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // 使用Gson等库构造JSON，避免手动拼接导致的格式错误
+            val requestBody = JSONObject().apply {
+                put("query", query)
+                put("session_id", sessionId)
+                put("streaming", streaming)
+            }.toString()
+
+            val request = Request.Builder()
+                .url("$baseUrl/query")
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val response = client.newCall(request).execute()
+            
+            // 记录422时的响应体，便于定位具体错误
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                Log.e("AgentClient", "查询失败，状态码：${response.code}, 错误信息：$errorBody")
+            }
+            
+            return@withContext response.isSuccessful
+        } catch (e: Exception) {
+            Log.e("AgentClient", "查询请求失败: ${e.message}")
+            false
+        }
+    }
+
+    // 原 sendMCPHostMSG 功能迁移（示例）
+    private fun handleMCPHostMessage(data: String) {
+        // 这里实现原 sendMCPHostMSG 的逻辑（例如解析 data 并执行操作）
+        Log.d("AgentClient", "Received MCP Host message: $data")
+    }
+
     // 定义事件数据类
     data class ModelResponse(
         val type: String,
@@ -43,68 +127,7 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
         val data: Any
     )
 
-    // 发送查询请求并返回事件流
-    fun query(query: String, sessionId: String = "default", streaming: Boolean = true): Flow<AgentEvent> = flow {
-        val channel = Channel<AgentEvent>()
-        
-        val requestBody = JSONObject().apply {
-            put("query", query)
-            put("session_id", sessionId)
-            put("streaming", streaming)
-        }.toString()
-
-        val request = Request.Builder()
-            .url("$baseUrl/query")
-            .post(requestBody.toRequestBody("application/json".toMediaType()))
-            .build()
-
-        Log.d("benyl", request.toString())
-
-        val eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
-            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                when (type) {
-                    "model_response" -> {
-                        val jsonData = JSONObject(data)
-                        channel.trySend(AgentEvent("model_response", ModelResponse(
-                            type = jsonData.getString("type"),
-                            content = jsonData.optString("content")
-                        )))
-                    }
-                    "tool_call" -> {
-                        val jsonData = JSONObject(data)
-                        channel.trySend(AgentEvent("tool_call", ToolCall(
-                            type = jsonData.getString("type"),
-                            name = jsonData.optString("name"),
-                            arguments = jsonData.optString("arguments"),
-                            toolId = jsonData.optString("tool_id"),
-                            output = jsonData.optString("output")
-                        )))
-                    }
-                    "error" -> {
-                        val jsonData = JSONObject(data)
-                        channel.trySend(AgentEvent("error", jsonData.getString("error")))
-                    }
-                }
-            }
-
-            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                channel.trySend(AgentEvent("error", t?.message ?: "Unknown error"))
-            }
-        })
-
-        try {
-            channel.receiveAsFlow().collect { event ->
-                emit(event)
-            }
-        } catch (e: Exception) {
-            emit(AgentEvent("error", e.message ?: "Unknown error"))
-        } finally {
-            channel.close()
-            eventSource.cancel()
-        }
-    }
-
-    // 清空对话历史
+    // 清空对话历史（未修改）
     suspend fun clearHistory(sessionId: String = "default"): Boolean = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -118,4 +141,7 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
             false
         }
     }
+
+    // 暴露事件流供外部订阅
+    fun getEventFlow(): Flow<AgentEvent> = eventChannel.receiveAsFlow()
 }
