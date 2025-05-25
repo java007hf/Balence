@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
                         "mcp_host_msg" -> {
                             // 处理 MCP Host 消息（根据实际业务需求扩展）
-                            Log.d("MainActivity", "MCP Host 消息：${event.data}")
+                            Log.d("benyl", "MCP Host 消息：${event.data}")
                         }
                     }
                 }

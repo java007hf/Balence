@@ -36,32 +36,50 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
 
         eventSource = EventSources.createFactory(client).newEventSource(listenRequest, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                Log.d("benyl", "原始data内容: $data")
+                // 解析 SSE 标准格式（event: type\ndata: payload）
+                val lines = data.split("\n").filter { it.isNotBlank() }
+                val parsedEvent = lines.firstOrNull { it.startsWith("event:") }?.substringAfter("event:")?.trim()
+                val parsedData = lines.firstOrNull { it.startsWith("data:") }?.substringAfter("data:")?.trim() ?: data
+
+                // 使用解析出的 event 类型（优先使用 type 参数，若为 null 则用 parsedEvent）
+                val eventType = type ?: parsedEvent
+                Log.d("benyl", "解析后的eventType: $eventType，解析后data: $parsedData")
+
                 // 统一处理所有 SSE 事件，发送到事件通道
-                when (type) {
-                    "model_response" -> {
-                        val jsonData = JSONObject(data)
-                        eventChannel.trySend(AgentEvent("model_response", ModelResponse(
-                            type = jsonData.getString("type"),
-                            content = jsonData.optString("content")
-                        )))
-                    }
+                when (eventType) {
                     "tool_call" -> {
-                        val jsonData = JSONObject(data)
+                        val jsonData = JSONObject(parsedData)
                         eventChannel.trySend(AgentEvent("tool_call", ToolCall(
-                            type = jsonData.getString("type"),
                             name = jsonData.optString("name"),
                             arguments = jsonData.optString("arguments"),
-                            toolId = jsonData.optString("tool_id"),
-                            output = jsonData.optString("output")
+                            toolId = jsonData.optString("tool_id")
                         )))
                     }
+                    "model_delta" -> {
+                        val jsonData = JSONObject(parsedData)
+                        eventChannel.trySend(AgentEvent("model_delta", jsonData.getString("content")))
+                    }
+                    "model_done" -> {
+                        eventChannel.trySend(AgentEvent("model_done", Unit))
+                    }
+                    "tool_output" -> {
+                        val jsonData = JSONObject(parsedData)
+                        eventChannel.trySend(AgentEvent("tool_output", ToolOutput(
+                            toolId = jsonData.getString("tool_id"),
+                            output = jsonData.getString("output")
+                        )))
+                    }
+                    "final_output" -> {
+                        val jsonData = JSONObject(parsedData)
+                        eventChannel.trySend(AgentEvent("final_output", jsonData.getString("content")))
+                    }
                     "error" -> {
-                        val jsonData = JSONObject(data)
+                        val jsonData = JSONObject(parsedData)
                         eventChannel.trySend(AgentEvent("error", jsonData.getString("error")))
                     }
-                    // 新增：处理原 sendMCPHostMSG 相关事件（假设类型为 "mcp_host_msg"）
-                    "mcp_host_msg" -> {
-                        handleMCPHostMessage(data) // 原 sendMCPHostMSG 的功能迁移至此
+                    else -> {
+                        handleMCPHostMessage(parsedData)
                     }
                 }
             }
@@ -115,16 +133,20 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
     )
 
     data class ToolCall(
-        val type: String,
         val name: String? = null,
         val arguments: String? = null,
-        val toolId: String? = null,
-        val output: String? = null
+        val toolId: String? = null
     )
 
+    data class ToolOutput(
+        val toolId: String,
+        val output: String
+    )
+
+    // ModelResponse 因 model_response 事件被删除，可直接用 String 类型替代
     data class AgentEvent(
-        val type: String,
-        val data: Any
+        val type: String,  // 事件类型（如 "model_delta"、"tool_output"）
+        val data: Any  // 具体数据（可能是 String、ToolCall、ToolOutput 等）
     )
 
     // 清空对话历史（未修改）
