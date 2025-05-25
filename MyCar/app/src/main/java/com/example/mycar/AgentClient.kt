@@ -53,7 +53,6 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
                         eventChannel.trySend(AgentEvent("tool_call", ToolCall(
                             name = jsonData.optString("name"),
                             arguments = jsonData.optString("arguments"),
-                            toolId = jsonData.optString("tool_id")
                         )))
                     }
                     "model_delta" -> {
@@ -66,7 +65,6 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
                     "tool_output" -> {
                         val jsonData = JSONObject(parsedData)
                         eventChannel.trySend(AgentEvent("tool_output", ToolOutput(
-                            toolId = jsonData.getString("tool_id"),
                             output = jsonData.getString("output")
                         )))
                     }
@@ -126,24 +124,15 @@ class AgentClient(private val baseUrl: String = "http://localhost:8000") {
         Log.d("AgentClient", "Received MCP Host message: $data")
     }
 
-    // 定义事件数据类
-    data class ModelResponse(
-        val type: String,
-        val content: String? = null
-    )
-
     data class ToolCall(
         val name: String? = null,
         val arguments: String? = null,
-        val toolId: String? = null
     )
 
     data class ToolOutput(
-        val toolId: String,
         val output: String
     )
 
-    // ModelResponse 因 model_response 事件被删除，可直接用 String 类型替代
     data class AgentEvent(
         val type: String,  // 事件类型（如 "model_delta"、"tool_output"）
         val data: Any  // 具体数据（可能是 String、ToolCall、ToolOutput 等）

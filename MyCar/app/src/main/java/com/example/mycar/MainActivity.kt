@@ -101,21 +101,17 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             agentClient.getEventFlow().collect { event ->
                 withContext(Dispatchers.Main) {  // 切回主线程更新 UI
                     when (event.type) {
-                        "model_response" -> {
-                            val modelResponse = event.data as AgentClient.ModelResponse
-                            mResultText?.append("模型响应：${modelResponse.content}\n")
+                        "model_delta" -> {
+                            val modelResponse = event.data as String
+                            mResultText?.append(modelResponse)
                         }
                         "tool_call" -> {
                             val toolCall = event.data as AgentClient.ToolCall
-                            showTip(this@MainActivity, "工具调用：${toolCall.name}，参数：${toolCall.arguments}")
+                            mResultText?.append("工具调用：${toolCall.name}，参数：${toolCall.arguments}\n")
                         }
                         "error" -> {
                             val errorMsg = event.data as String
                             showTip(this@MainActivity, "错误：$errorMsg")
-                        }
-                        "mcp_host_msg" -> {
-                            // 处理 MCP Host 消息（根据实际业务需求扩展）
-                            Log.d("benyl", "MCP Host 消息：${event.data}")
                         }
                     }
                 }
