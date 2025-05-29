@@ -1,8 +1,7 @@
-#include <WiFiUdp.h>
-#include <WiFi.h>
 #include <Wire.h>
 #include <string.h>
 #include <MPU6050_tockn.h>
+#include <BluetoothSerial.h>
 /*-------------------------------------------------
   测试马达转动速度；
   通过串口输入'1'PWMX加1，输入'2'PWMX减1。
@@ -30,15 +29,8 @@
 #define RStar_PWM 4       //测试出右电机起转PWM补偿值
 #define TIMEX 100          //定义时间间隔
 
-//wifi
-WiFiUDP Udp;
-unsigned int localUdpPort = 5555;   // local port to listen on
-unsigned int remoteUdpPort = 8888;  // local port to listen on
-IPAddress local_IP(192, 168, 1, 88);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
-char replyPacket[] = "test ok";  // a reply string to send back
-//wifi end
+// 创建蓝牙串口对象
+BluetoothSerial SerialBT;
 
 MPU6050 Mpu6050(Wire);
 
@@ -55,6 +47,10 @@ float ANG_PWM, SPD_PWM, Turn_PWM, TOT_PWM;           //定义角度PWM、速度P
 long SPD_INTG_ValA, SPD_INTG_ValB;                   //定义速度积分变量
 int SPD_A = 0, SPD_B = 0;                            //定义速度脉冲数
 unsigned long Last_Time;                            //定义角度PWM
+
+// 定义缓冲区大小
+#define BUFFER_SIZE 64
+char buffer[BUFFER_SIZE];
 
 /*-------定义角度环PID调试程序输出电机电压PWM数值-------*/
 /* 用陀螺仪返回的数据计算直立PID的PWM
@@ -150,12 +146,13 @@ void MPU6050_begin() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  
   Motor_begin();    //电机初始化
   MPU6050_begin();  //陀螺仪初始化
   attachInterrupt(Left_EnCoderB, EnCoder_CountA, CHANGE);
   attachInterrupt(Right_EnCoderB, EnCoder_CountB, CHANGE);
   pinMode(2, OUTPUT);
-  initWifi_Ap();
+  initBluetooth();  // 初始化蓝牙
 
   Last_Time = millis();
 }
@@ -323,72 +320,51 @@ void splitString(const char* str, String result[], int& resultSize) {
 }
 
 void GetCommand() {
-  int packetSize = Udp.parsePacket();
-  if (packetSize) {
-    // receive incoming UDP packets
-    Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
-    char incomingPacket[255];  // buffer for incoming packets
-    int len = Udp.read(incomingPacket, 255);
+  if (SerialBT.available()) {
+    // 使用更高效的读取方式
+    int len = SerialBT.readBytesUntil('\n', buffer, BUFFER_SIZE - 1);
     if (len > 0) {
-      incomingPacket[len] = 0;
-      Serial.printf("UDP packet contents: %s\n", incomingPacket);
-      //get command
-      String commandAndArgs[10];  // 假设最多 10 个
-      int count;
-      splitString(incomingPacket, commandAndArgs, count);
-      char command = commandAndArgs[0][0];
-      int argsCount = 0;
-
-      if (count > 0) {
-        argsCount = count - 1;
-        int args[argsCount];
-        for (int i = 1; i < count; i++) {
-          args[i - 1] = stringToInt(commandAndArgs[i]);
+      buffer[len] = '\0';  // 确保字符串结束
+      
+      // 快速解析命令
+      char* cmd = strtok(buffer, " ");
+      if (cmd != NULL) {
+        char command = cmd[0];
+        int args[10];
+        int argsCount = 0;
+        
+        // 解析参数
+        char* arg = strtok(NULL, " ");
+        while (arg != NULL && argsCount < 10) {
+          args[argsCount++] = atoi(arg);
+          arg = strtok(NULL, " ");
         }
+        
+        // 执行命令
         onCommand(command, args, argsCount);
-      } else {
-        onCommand(command, NULL, 0);
+        Blink();
       }
-
-      Blink();
     }
   }
 }
 
 void sendCommandByBuffer(int command, char* args) {
-  // Serial.print("===sendCommand====2");
-  // Serial.println(command);
-
-  Udp.beginPacket(Udp.remoteIP(), remoteUdpPort);
-  // Udp.write(args);
-  for (int i = 0; args[i] != '\0'; i++) {
-    Udp.write((uint8_t)args[i]);
+  if (SerialBT.connected()) {
+    // 使用更高效的格式化方式
+    int len = snprintf(buffer, BUFFER_SIZE, "%d %s\n", command, args);
+    if (len > 0 && len < BUFFER_SIZE) {
+      SerialBT.write((uint8_t*)buffer, len);
+    }
   }
-  Udp.endPacket();
 }
 
-//command 命令
-//args 用一个字符串表示，一般情况是发送一些log信息
 void sendCommand(int command, String args) {
-  // Serial.print("===sendCommand====1");
-  // Serial.println(command);
-
-
-  char charArray[args.length() + 1];
-  args.toCharArray(charArray, args.length() + 1);
-
-  int size = args.length() + 1 + 5;
-  char buffer[size];  // 用于存储格式化后的字符串
-  sprintf(buffer, "%d %s", command, charArray);
-
-  // Serial.println(buffer);
-
-  Udp.beginPacket(Udp.remoteIP(), remoteUdpPort);
-  //Udp.write(buffer);
-  for (int i = 0; buffer[i] != '\0'; i++) {
-    Udp.write((uint8_t)buffer[i]);
+  if (SerialBT.connected()) {
+    int len = snprintf(buffer, BUFFER_SIZE, "%d %s\n", command, args.c_str());
+    if (len > 0 && len < BUFFER_SIZE) {
+      SerialBT.write((uint8_t*)buffer, len);
+    }
   }
-  Udp.endPacket();
 }
 
 void add_pwd() {
@@ -437,18 +413,13 @@ void onCommand(char command, int* args, int argsCount) {
   }
 }
 
-void initWifi_Ap() {
-  Serial.print("Setting soft-AP ... ");
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-
-  boolean result = WiFi.softAP("ESPsoftAP_01", "12312331");
-  if (result == true) {
-    Serial.println("Ready");
-    Udp.begin(localUdpPort);
-    Serial.printf("Now listening at IP %s, UDP port %d\n", WiFi.softAPIP().toString().c_str(), localUdpPort);
-  } else {
-    Serial.println("Failed!");
+void initBluetooth() {
+  // 初始化蓝牙串口
+  if (!SerialBT.begin("ESP32_BalanceCar")) {
+    Serial.println("蓝牙初始化失败!");
+    return;
   }
+  Serial.println("蓝牙设备已启动，等待连接...");
 }
 
 void Blink() {

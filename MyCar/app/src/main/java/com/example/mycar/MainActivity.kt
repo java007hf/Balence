@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         setContentView(R.layout.main_activity)
         initASR()
         initView()
+        Command.initBluetooth(this)
 
         // 订阅 AgentClient 的事件流
         scope.launch(Dispatchers.IO) {
@@ -175,10 +176,10 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                     startActivity(intent)
                 }
                 R.id.checklinked -> {
-//                    sendMsg(Command.TEST.toString())
-                    scope.launch {
-                        agentClient.query("前进")
-                    }
+                    sendMsg(Command.TEST.toString())
+//                    scope.launch {
+//                        agentClient.query("前进")
+//                    }
 
                 }
                 else -> {}
