@@ -69,6 +69,7 @@ void AnglePID_PWMCount() {  //计算电机转动需要的PWM数值
     ANG_PWM = ANG_Kp * ANG_DIF_Val + ANG_Ki * ANG_INTG_Val + ANG_Kd * GyroX;
   } else ANG_PWM = 0;
 
+/*
   Serial.print("AngleX:");
   Serial.print(AngleX);
   Serial.print(',');
@@ -92,6 +93,7 @@ void AnglePID_PWMCount() {  //计算电机转动需要的PWM数值
   Serial.println(',');  //打印出右侧B电机速度脉冲值
   Serial.print("直立环:");
   Serial.println(ANG_PWM);
+  */
 }
 
 /*-------定义速度环PID调试程序输出电机电压PWM数值-------*/
@@ -160,20 +162,14 @@ void setup() {
 void loop() {
   // Serial.println("=======loop======");
   GetCommand();
-  // Serial.println("=======aaaa======");
-//  AnglePID_PWMCount();  //角度环PWM计算
-  // Serial.println("=======bbbb======");
+  AnglePID_PWMCount();  //角度环PWM计算
   // if (SPD_A >= 10)
   //   SpeedPID_PWMCount(SPD_A, SPD_B);  //当速度大于10时开启速度环PWM计算
-  // Serial.println("=======cccc======");
   // TurnPID_PWMCount();                 //转向环PWM计算
   // TOT_PWM = ANG_PWM - SPD_PWM;        //串联角度环和速度环
-  // Serial.println("=======dddd======");
   // Car_DRV(TOT_PWM);
   Car_DRV(ANG_PWM);
-  // Serial.println("=======eeee======");
-  INT_TIMER();  //定时中断程
-  // Serial.println("=======ffff======");
+//  INT_TIMER();  //定时中断程
 }
 
 /*-------定义编码器AB相计数程序-------*/
@@ -205,28 +201,7 @@ void EnCoder_CountB() {
 void View_PWM() {
   char buffer[200];  // 用于存储格式化后的字符串
   sprintf(buffer, "AngleX=%.2f, AngleY=%.2f, GyroX=%.2f,\nANG_Kp=%.2f, ANG_Ki=%.2f, ANG_Kd=%.2f, ANG_INTG_Val=%.2f \nANG_PWM=%.2f", AngleX, AngleY, GyroX, ANG_Kp, ANG_Ki, ANG_Kd, ANG_INTG_Val, ANG_PWM);
-
   sendCommandByBuffer(101, buffer);
-
-  // Serial.print("AngleX:");
-  // Serial.print(AngleX);
-  // Serial.print(',');
-  // Serial.print("AngleY:");
-  // Serial.print(AngleY);
-  // Serial.print(',');
-  // Serial.print("GyroX:");
-  // Serial.print(GyroX);
-  // Serial.print(',');
-
-  // Serial.print("直立环:");
-  // Serial.print(ANG_PWM);
-  // Serial.print(',');
-  // Serial.print("SPD_A:");
-  // Serial.print(SPD_A);
-  // Serial.print(',');  //打印出左侧A电机速度脉冲值
-  // Serial.print("SPD_B:");
-  // Serial.print(SPD_B);
-  // Serial.println(',');  //打印出右侧B电机速度脉冲值
 }
 
 /*-------定义中断程序-------*/
@@ -348,12 +323,9 @@ void GetCommand() {
 }
 
 void sendCommandByBuffer(int command, char* args) {
-  Serial.println("===11111====");
   if (SerialBT.connected()) {
-    Serial.println("===22222====");
     // 使用更高效的格式化方式
     int len = snprintf(buffer, BUFFER_SIZE, "%d %s\n", command, args);
-    Serial.println(len);
     if (len > 0 && len < BUFFER_SIZE) {
       SerialBT.write((uint8_t*)buffer, len);
     }
@@ -369,20 +341,18 @@ void sendCommand(int command, String args) {
   }
 }
 
-void add_pwd() {
-  Serial.print("===add_pwd====");
-}
-
-void sub_pwd() {
-  Serial.print("===sub_pwd====");
-}
-
 void setPID(int Kp, int Ki, int Kd, int KAngel) {
   Serial.println("===setPID====");
   ANG_Kp = Kp/100.0f;
   ANG_Ki = Ki/100.0f;
   ANG_Kd = Kd/100.0f;
   Keep_Angle = KAngel/100.0f;
+}
+
+void move(int arg1, int arg2) {
+  Serial.println("===move====");
+  Serial.println(arg1);
+  Serial.println(arg2);
 }
 
 void onCommand(char command, int* args, int argsCount) {
@@ -399,8 +369,7 @@ void onCommand(char command, int* args, int argsCount) {
 
   switch (command) {
     case '0': sendCommand(100, "test ok"); break;  //手机连接发送连接信号，发送100表示成功
-    case '1': add_pwd(); break;
-    case '2': sub_pwd(); break;
+    case '1': move(args[0], args[1]); break;
     case '3': setPID(args[0], args[1], args[2], args[3]); break;
     default:
       break;

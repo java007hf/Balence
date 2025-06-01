@@ -16,7 +16,7 @@ object Command {
     private var bluetoothSocket: BluetoothSocket? = null
     private var outputStream: OutputStream? = null
     const val TEST = 0
-    const val OPT_LR = 1
+    const val SET_COMMAND = 1
     const val SET_PID = 3
     private val listeners = ArrayList<OnRecv>()
     private val isRunning = AtomicBoolean(true)

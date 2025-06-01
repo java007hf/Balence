@@ -118,7 +118,14 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, Command.OnRecv {
                         }
                         "tool_call" -> {
                             val toolCall = event.data as AgentClient.ToolCall
-                            mResultText?.append("\n\n工具调用：\n${toolCall.name}，参数：${toolCall.arguments}\n\n")
+                            mResultText?.append("\n\n工具调用：\n${toolCall.name}，参数：${toolCall.arguments}\n")
+                        }
+                        "tool_output" -> {
+                            val toolOutput = event.data as AgentClient.ToolOutput
+                            mResultText?.append("\n\n工具返回：\n${toolOutput.output}\n\n")
+                            sendMsg(
+                                Command.SET_COMMAND.toString()
+                                        + " " + toolOutput.output)
                         }
                         "error" -> {
                             val errorMsg = event.data as String
