@@ -29,7 +29,9 @@ class SettingsActivity : AppCompatActivity() {
 
         Command.addListener(object : Command.OnRecv {
             override fun onRecvMsg(str: String) {
-                carInfo?.setText(str)
+                if (str.startsWith("101")) {
+                    carInfo?.text = str
+                }
             }
         })
 

@@ -49,7 +49,7 @@ int SPD_A = 0, SPD_B = 0;                            //定义速度脉冲数
 unsigned long Last_Time;                            //定义角度PWM
 
 // 定义缓冲区大小
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 128
 char buffer[BUFFER_SIZE];
 
 /*-------定义角度环PID调试程序输出电机电压PWM数值-------*/
@@ -161,7 +161,7 @@ void loop() {
   // Serial.println("=======loop======");
   GetCommand();
   // Serial.println("=======aaaa======");
-  AnglePID_PWMCount();  //角度环PWM计算
+//  AnglePID_PWMCount();  //角度环PWM计算
   // Serial.println("=======bbbb======");
   // if (SPD_A >= 10)
   //   SpeedPID_PWMCount(SPD_A, SPD_B);  //当速度大于10时开启速度环PWM计算
@@ -206,7 +206,6 @@ void View_PWM() {
   char buffer[200];  // 用于存储格式化后的字符串
   sprintf(buffer, "AngleX=%.2f, AngleY=%.2f, GyroX=%.2f,\nANG_Kp=%.2f, ANG_Ki=%.2f, ANG_Kd=%.2f, ANG_INTG_Val=%.2f \nANG_PWM=%.2f", AngleX, AngleY, GyroX, ANG_Kp, ANG_Ki, ANG_Kd, ANG_INTG_Val, ANG_PWM);
 
-  // Serial.println(buffer);
   sendCommandByBuffer(101, buffer);
 
   // Serial.print("AngleX:");
@@ -349,9 +348,12 @@ void GetCommand() {
 }
 
 void sendCommandByBuffer(int command, char* args) {
+  Serial.println("===11111====");
   if (SerialBT.connected()) {
+    Serial.println("===22222====");
     // 使用更高效的格式化方式
     int len = snprintf(buffer, BUFFER_SIZE, "%d %s\n", command, args);
+    Serial.println(len);
     if (len > 0 && len < BUFFER_SIZE) {
       SerialBT.write((uint8_t*)buffer, len);
     }

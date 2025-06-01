@@ -201,9 +201,9 @@ class MainActivity : AppCompatActivity(), View.OnClickListener, Command.OnRecv {
 
     override fun onRecvMsg(str: String) {
         Log.d("benyl", "recvMsg===== $str")
-        if (str.equals("100 test ok")) {
+        if (str.startsWith("100")) {
             hasConnected = true
-            Toast.makeText(this, "连接正常", Toast.LENGTH_SHORT).show()
+            showTip(this@MainActivity, "连接正常")
         }
     }
 }

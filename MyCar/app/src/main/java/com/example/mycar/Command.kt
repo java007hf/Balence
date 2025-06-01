@@ -49,7 +49,7 @@ object Command {
 
     private fun startReceiving() {
         CoroutineScope(Dispatchers.IO).launch {
-            val buffer = ByteArray(64)
+            val buffer = ByteArray(128)
             val inputStream = bluetoothSocket?.inputStream
 
             while (isRunning.get()) {
