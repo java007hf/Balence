@@ -18,8 +18,12 @@ object Command {
     const val TEST = 0
     const val OPT_LR = 1
     const val SET_PID = 3
-    private val listeners = ArrayList<OnRecvUDP>()
+    private val listeners = ArrayList<OnRecv>()
     private val isRunning = AtomicBoolean(true)
+
+    interface OnRecv {
+        fun onRecvMsg(str: String)
+    }
 
     fun initBluetooth(context: Context) {
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
@@ -77,11 +81,11 @@ object Command {
         }
     }
     
-    fun addListener(lis: OnRecvUDP) {
+    fun addListener(lis: OnRecv) {
         listeners.add(lis)
     }
     
-    fun removeListener(lis: OnRecvUDP) {
+    fun removeListener(lis: OnRecv) {
         listeners.remove(lis)
     }
     

@@ -27,7 +27,7 @@ class SettingsActivity : AppCompatActivity() {
         submitBtn = findViewById(R.id.submit)
         kAEditText = findViewById(R.id.Keep_Angle)
 
-        Command.addListener(object : OnRecvUDP {
+        Command.addListener(object : Command.OnRecv {
             override fun onRecvMsg(str: String) {
                 carInfo?.setText(str)
             }

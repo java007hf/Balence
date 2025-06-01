@@ -2,8 +2,6 @@ package com.example.mycar
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -28,7 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity(), View.OnClickListener {
+class MainActivity : AppCompatActivity(), View.OnClickListener, Command.OnRecv {
     private var hasConnected = false
     private val agentClient = AgentClient("http://192.168.3.102:8000")
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -36,6 +34,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
     // 听写结果内容
     private var mResultText: TextView? = null
+    private var queryMsg: String = ""
 
     /**
      * 听写监听器。
@@ -62,9 +61,12 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
             p0?.let {
                 val text = parseIatResult(it.resultString)
                 mResultText!!.append(text)
-//                mResultText!!.setSelection(mResultText!!.length())
+                queryMsg += text
                 if (isLast) {
-                    //TODO 最后的结果
+                    Log.d("benyl", "query message is $queryMsg")
+                    scope.launch {
+                        agentClient.query(queryMsg)
+                    }
                 }
             }
         }
@@ -95,8 +97,16 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
         setContentView(R.layout.main_activity)
         initASR()
         initView()
-        Command.initBluetooth(this)
+        initAgent()
+        initBT()
+    }
 
+    private fun initBT() {
+        Command.addListener(this)
+        Command.initBluetooth(this)
+    }
+
+    private fun initAgent() {
         // 订阅 AgentClient 的事件流
         scope.launch(Dispatchers.IO) {
             agentClient.getEventFlow().collect { event ->
@@ -108,7 +118,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                         }
                         "tool_call" -> {
                             val toolCall = event.data as AgentClient.ToolCall
-                            mResultText?.append("工具调用：${toolCall.name}，参数：${toolCall.arguments}\n")
+                            mResultText?.append("\n\n工具调用：\n${toolCall.name}，参数：${toolCall.arguments}\n\n")
                         }
                         "error" -> {
                             val errorMsg = event.data as String
@@ -154,6 +164,7 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
                 R.id.iat_recognize -> {
                     mResultText?.setText(null) // 清空显示内容
+                    queryMsg = ""
                     val ret = asrHelper?.startListening(mRecognizerListener)
 
                     if (ret != ErrorCode.SUCCESS) {
@@ -177,27 +188,23 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
                 R.id.checklinked -> {
                     sendMsg(Command.TEST.toString())
-//                    scope.launch {
-//                        agentClient.query("前进")
-//                    }
-
                 }
                 else -> {}
             }
         }
     }
 
-    private fun onRecv(msg: String) {
-        Log.d("benyl", "recvMsg===== $msg")
-        if (msg.equals("100 test ok")) {
-            hasConnected = true
-            Toast.makeText(this, "连接正常", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()  // 取消协程作用域，停止事件监听
+    }
+
+    override fun onRecvMsg(str: String) {
+        Log.d("benyl", "recvMsg===== $str")
+        if (str.equals("100 test ok")) {
+            hasConnected = true
+            Toast.makeText(this, "连接正常", Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
