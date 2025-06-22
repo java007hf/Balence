@@ -29,8 +29,26 @@
 #define RStar_PWM 4       //测试出右电机起转PWM补偿值
 #define TIMEX 100          //定义时间间隔
 
+/*-------蓝牙相关配置-------*/
+#define BT_DISCOVER_TIME	10000
+esp_spp_sec_t sec_mask=ESP_SPP_SEC_NONE; // or ESP_SPP_SEC_ENCRYPT|ESP_SPP_SEC_AUTHENTICATE to request pincode confirmation
+esp_spp_role_t role=ESP_SPP_ROLE_SLAVE; // or ESP_SPP_ROLE_MASTER
+//Found a device asynchronously: Name: 小米蓝牙手柄, Address: 1c:96:5a:f4:f8:c1, cod: 9480, rssi: -30
+
 // 创建蓝牙串口对象
 BluetoothSerial SerialBT;
+
+// 小米手柄设备信息
+String xiaomiControllerName = "小米蓝牙手柄";
+String xiaomiControllerAddress = "1c:96:5a:f4:f8:c1";
+bool xiaomiControllerFound = false;
+BTAdvertisedDevice* xiaomiControllerDevice = nullptr;
+
+// 手柄控制状态
+bool controllerConnected = false;
+int controllerSpeed = 0;    // 速度控制 (-100 到 100)
+int controllerTurn = 0;     // 转向控制 (-50 到 50)
+bool controllerEnabled = false;  // 是否启用手柄控制
 
 MPU6050 Mpu6050(Wire);
 
@@ -145,6 +163,22 @@ void MPU6050_begin() {
   //Mpu6050.setGyroOffsets(-1.67, 0.36, -1.92);  //后期可直接设置不用每次都测试
 } 
 
+/*-------搜索蓝牙-------*/
+void btAdvertisedDeviceFound(BTAdvertisedDevice* pDevice) {
+	Serial.printf("Found a device asynchronously: %s\n", pDevice->toString().c_str());
+	
+	// 检查是否是小米手柄
+	if (pDevice->getName() == xiaomiControllerName.c_str() || 
+	    pDevice->getAddress().toString() == xiaomiControllerAddress.c_str()) {
+		Serial.println("找到小米手柄设备！");
+		xiaomiControllerFound = true;
+		xiaomiControllerDevice = pDevice;
+		Serial.printf("设备名称: %s\n", pDevice->getName().c_str());
+		Serial.printf("设备地址: %s\n", pDevice->getAddress().toString().c_str());
+		Serial.printf("信号强度: %d\n", pDevice->getRSSI());
+	}
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -162,6 +196,8 @@ void setup() {
 void loop() {
   // Serial.println("=======loop======");
   GetCommand();
+  handleXiaomiControllerData();  // 处理小米手柄数据
+  checkBluetoothConnection();    // 检查蓝牙连接状态
   AnglePID_PWMCount();  //角度环PWM计算
   // if (SPD_A >= 10)
   //   SpeedPID_PWMCount(SPD_A, SPD_B);  //当速度大于10时开启速度环PWM计算
@@ -217,22 +253,38 @@ void INT_TIMER() {
 void Car_DRV(int Pwm) {                  //两个电机转动方向镜像对称，小车向一个方向行驶
   /*-------加上两轮起转PWM数值-------*/  //需要提前测试出电机起转PWM值
   int Left_PWM, Right_PWM;
-  if (Pwm > 0) {
-    Left_PWM = Pwm + LStar_PWM;   //加上左马达电压补偿PWM值
-    Right_PWM = Pwm + RStar_PWM;  //加上右马达电压补偿PWM值
-  }
-  if (Pwm < 0) {
-    Left_PWM = Pwm - LStar_PWM;
-    Right_PWM = Pwm - RStar_PWM;
-  }
-  if (Pwm == 0) {
-    Left_PWM = 0;
-    Right_PWM = 0;
-  }
+  
+  // 如果手柄已连接且启用，则使用手柄控制
+  if (controllerConnected && controllerEnabled) {
+    // 将手柄控制值转换为PWM
+    int basePWM = map(abs(controllerSpeed), 0, 100, 0, 200);  // 基础PWM
+    if (controllerSpeed < 0) basePWM = -basePWM;
+    
+    Left_PWM = basePWM + controllerTurn;
+    Right_PWM = basePWM - controllerTurn;
+    
+    // 限制PWM范围
+    Left_PWM = constrain(Left_PWM, -255, 255);
+    Right_PWM = constrain(Right_PWM, -255, 255);
+  } else {
+    // 使用原有的平衡控制逻辑
+    if (Pwm > 0) {
+      Left_PWM = Pwm + LStar_PWM;   //加上左马达电压补偿PWM值
+      Right_PWM = Pwm + RStar_PWM;  //加上右马达电压补偿PWM值
+    }
+    if (Pwm < 0) {
+      Left_PWM = Pwm - LStar_PWM;
+      Right_PWM = Pwm - RStar_PWM;
+    }
+    if (Pwm == 0) {
+      Left_PWM = 0;
+      Right_PWM = 0;
+    }
 
-  /*-------控制转向-------*/
-  if (Turn_PWM > 0) Left_PWM += Turn_PWM;   //左转左轮多运动
-  if (Turn_PWM < 0) Right_PWM -= Turn_PWM;  //右转右轮多运动
+    /*-------控制转向-------*/
+    if (Turn_PWM > 0) Left_PWM += Turn_PWM;   //左转左轮多运动
+    if (Turn_PWM < 0) Right_PWM -= Turn_PWM;  //右转右轮多运动
+  }
 
   /*-------控制电机转动-------*/
   Motor_DRV(Left_AIN1, Left_AIN2, Left_PWMA, Left_PWM);       //输入左侧电机3个针脚和PWM数值
@@ -384,13 +436,197 @@ void onCommand(char command, int* args, int argsCount) {
   }
 }
 
+/*-------连接小米手柄-------*/
+bool connectToXiaomiController() {
+	if (!xiaomiControllerFound || xiaomiControllerDevice == nullptr) {
+		Serial.println("未找到小米手柄设备，无法连接");
+		return false;
+	}
+	
+	Serial.println("尝试连接小米手柄...");
+	Serial.printf("连接地址: %s\n", xiaomiControllerDevice->getAddress().toString().c_str());
+
+  BTAddress addr;
+  int channel=0;
+
+  BTAdvertisedDevice *device = xiaomiControllerDevice;
+  Serial.printf(" ----- %s  %s %d\n", device->getAddress().toString().c_str(), device->getName().c_str(), device->getRSSI());
+  std::map<int,std::string> channels=SerialBT.getChannels(device->getAddress());
+  Serial.printf("scanned for services, found %d\n", channels.size());
+  for(auto const &entry : channels) {
+    Serial.printf("     channel %d (%s)\n", entry.first, entry.second.c_str());
+  }
+
+  addr = device->getAddress();
+  if(channels.size() > 0) {
+    channel=channels.begin()->first;
+  }
+  
+  if(addr) {
+    Serial.printf("connecting to %s - %d\n", addr.toString().c_str(), channel);
+    
+    // 尝试连接到小米手柄
+    if (SerialBT.connect(addr, channel, sec_mask, role)) {
+      Serial.println("成功连接到小米手柄！");
+      controllerConnected = true;
+      controllerEnabled = true;
+      return true;
+    } else {
+      Serial.println("连接小米手柄失败");
+      controllerConnected = false;
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/*-------处理小米手柄数据-------*/
+void handleXiaomiControllerData() {
+  if (SerialBT.available()) {
+    // 读取手柄数据
+    uint8_t data[64];
+    int len = SerialBT.readBytes(data, sizeof(data));
+    
+    if (len > 0) {
+      Serial.print("收到手柄数据，长度: ");
+      Serial.println(len);
+      
+      // 打印原始数据用于调试
+      Serial.print("原始数据: ");
+      for (int i = 0; i < len; i++) {
+        Serial.printf("%02X ", data[i]);
+      }
+      Serial.println();
+      
+      // 解析手柄数据（这里需要根据小米手柄的具体协议来解析）
+      // 通常手柄数据包含摇杆、按钮等信息
+      if (len >= 8) {
+        // 假设前8字节包含基本控制信息
+        uint8_t leftStickX = data[0];
+        uint8_t leftStickY = data[1];
+        uint8_t rightStickX = data[2];
+        uint8_t rightStickY = data[3];
+        uint8_t buttons = data[4];
+        
+        Serial.printf("左摇杆: X=%d, Y=%d\n", leftStickX, leftStickY);
+        Serial.printf("右摇杆: X=%d, Y=%d\n", rightStickX, rightStickY);
+        Serial.printf("按钮: 0x%02X\n", buttons);
+        
+        // 根据摇杆数据控制小车
+        // 将摇杆值转换为PWM控制信号
+        int leftStickXCentered = leftStickX - 128;  // 中心化摇杆值 (-128 到 127)
+        int leftStickYCentered = leftStickY - 128;
+        
+        // 使用左摇杆Y轴控制前进后退
+        if (abs(leftStickYCentered) > 20) {  // 死区
+          controllerSpeed = map(abs(leftStickYCentered), 0, 127, 0, 100);
+          if (leftStickYCentered < 0) {
+            // 前进
+            Serial.printf("前进，速度: %d\n", controllerSpeed);
+          } else {
+            // 后退
+            controllerSpeed = -controllerSpeed;
+            Serial.printf("后退，速度: %d\n", controllerSpeed);
+          }
+        } else {
+          controllerSpeed = 0;  // 死区内停止
+        }
+        
+        // 使用左摇杆X轴控制转向
+        if (abs(leftStickXCentered) > 20) {  // 死区
+          controllerTurn = map(abs(leftStickXCentered), 0, 127, 0, 50);
+          if (leftStickXCentered < 0) {
+            // 左转
+            controllerTurn = -controllerTurn;
+            Serial.printf("左转，转向: %d\n", controllerTurn);
+          } else {
+            // 右转
+            Serial.printf("右转，转向: %d\n", controllerTurn);
+          }
+        } else {
+          controllerTurn = 0;  // 死区内不转向
+        }
+        
+        // 处理按钮
+        if (buttons & 0x01) {
+          Serial.println("按钮A被按下 - 切换控制模式");
+          controllerEnabled = !controllerEnabled;
+          if (controllerEnabled) {
+            Serial.println("启用手柄控制模式");
+          } else {
+            Serial.println("启用平衡控制模式");
+            // 重置控制值
+            controllerSpeed = 0;
+            controllerTurn = 0;
+          }
+        }
+        if (buttons & 0x02) {
+          Serial.println("按钮B被按下 - 紧急停止");
+          controllerSpeed = 0;
+          controllerTurn = 0;
+          // 可以添加其他紧急停止逻辑
+        }
+      }
+    }
+  }
+}
+
+/*-------检查蓝牙连接状态-------*/
+void checkBluetoothConnection() {
+  static unsigned long lastCheckTime = 0;
+  const unsigned long checkInterval = 5000;  // 每5秒检查一次
+  
+  if (millis() - lastCheckTime > checkInterval) {
+    lastCheckTime = millis();
+    
+    if (controllerConnected && !SerialBT.connected()) {
+      Serial.println("蓝牙连接断开，尝试重新连接...");
+      controllerConnected = false;
+      controllerEnabled = false;
+      
+      // 尝试重新连接
+      if (xiaomiControllerFound && xiaomiControllerDevice != nullptr) {
+        if (connectToXiaomiController()) {
+          Serial.println("重新连接成功！");
+        } else {
+          Serial.println("重新连接失败");
+        }
+      }
+    }
+  }
+}
+
 void initBluetooth() {
   // 初始化蓝牙串口
   if (!SerialBT.begin("ESP32_BalanceCar")) {
     Serial.println("蓝牙初始化失败!");
     return;
+  } else {
+    Serial.println("蓝牙设备已启动，等待连接...");
+    Serial.print("Starting discoverAsync...");
+    if (SerialBT.discoverAsync(btAdvertisedDeviceFound)) {
+      Serial.println("Findings will be reported in \"btAdvertisedDeviceFound\"");
+      delay(20000);
+      Serial.print("Stopping discoverAsync... ");
+      SerialBT.discoverAsyncStop();
+      Serial.println("stopped");
+      
+      // 搜索完成后尝试连接小米手柄
+      if (xiaomiControllerFound) {
+        Serial.println("发现小米手柄，尝试连接...");
+        if (connectToXiaomiController()) {
+          Serial.println("小米手柄连接成功！");
+        } else {
+          Serial.println("小米手柄连接失败，继续等待其他设备连接...");
+        }
+      } else {
+        Serial.println("未发现小米手柄，继续等待其他设备连接...");
+      }
+    } else {
+      Serial.println("Error on discoverAsync f.e. not workin after a \"connect\"");
+    }
   }
-  Serial.println("蓝牙设备已启动，等待连接...");
 }
 
 void Blink() {
